@@ -1,0 +1,100 @@
+---
+title: "Pratical Machine Learning Course Project"
+author: "Lu Li"
+date: "June 21, 2019"
+output: 
+ html_document:
+  keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Summary
+The objective of this project is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict the manner in which they did the exercise.
+
+
+##Data Loading
+The training and testing data were downloaded from the Internet using the following website.
+
+The training data
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+```{r}
+rawtraindata<-read.csv("pml-training.csv",na.strings=c("NA","#DIV/0!",""))
+rawtestdata<-read.csv("pml-testing.csv",na.strings=c("NA","#DIV/0!",""))
+```
+
+##Loading the requried packages
+```{r,message=FALSE,warning=FALSE}
+library(dplyr)
+library(knitr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(randomForest)
+```
+##Data cleaning and processing
+By looking through the raw dataset(rawtraindata), it is noticed that when a NA appears in the sencond row of the dataset, the observations in its corresponding variable will be mostly NA. For example, varible krutosis_roll_belt has a NA in its second row (rawtrindata$krutosis_roll_belt[2,] is NA), all the ovservations of krutosis_roll_belt is NA. This trick was then used in the data cleaning step of this project. The first 7 varibles including the ID informations were also removed since they don't contribute to tracking of the movement. The train data and test data for the assignment were treated in the same manner.
+
+```{r}
+traindata1<-rawtraindata[,!is.na(rawtraindata[2,])]
+testdata1<-rawtestdata[,!is.na(rawtestdata[2,])]
+traindata2<-traindata1[-c(1:7)]
+testdata2<-testdata1[-c(1:7)]
+dim(traindata2)
+dim(testdata2)
+```
+##Data partitioning
+The training data was partioned into two parts, 70% for myTraining, 30% for myTesting
+```{r}
+inTrain <- createDataPartition(y=traindata2$classe, p=0.7, list=FALSE)
+myTraining <- traindata2[inTrain, ]
+myTesting <- traindata2[-inTrain, ]
+dim(myTraining)
+```
+##Machine leaning model: Decision Tree
+```{r}
+set.seed(12345)
+modFitDecTree <- rpart(classe ~ ., data=myTraining, method="class")
+predictDecTree <- predict(modFitDecTree, newdata=myTesting, type="class")
+confMatDecTree <- confusionMatrix(predictDecTree, myTesting$classe)
+confMatDecTree
+```
+##Machine leaning model:Generalized Boosted Model
+```{r}
+set.seed(12345)
+controlGBM <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
+modFitGBM  <- train(classe ~ ., data=myTraining, method = "gbm",
+                    trControl = controlGBM, verbose = FALSE)
+predictGBM <- predict(modFitGBM, newdata=myTesting)
+confMatGBM <- confusionMatrix(predictGBM, myTesting$classe)
+confMatGBM
+```
+##Machine leaning model:Random Forest
+```{r}
+set.seed(12345)
+controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+modFitRandForest <- train(classe ~ ., data=myTraining, method="rf",
+                          trControl=controlRF)
+predictRandForest <- predict(modFitRandForest, newdata=myTesting)
+confMatRandForest <- confusionMatrix(predictRandForest, myTesting$classe)
+confMatRandForest
+```
+##Conclusions
+The accuracy of the 3 regression modeling methods above are:
+Decision Tree : 0.7446
+GBM : 0.9682
+Random Forest : 0.9941
+From the above disscussion, the results indicted that random forest was the best model in this study. Therefore, the random forest model was applied to the test data for the assignment in the next part.
+
+##Applying the Random Forest Model to the test data set
+```{r}
+predicttest <- predict(modFitRandForest, newdata=testdata2)
+predicttest
+```
+
